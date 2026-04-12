@@ -39,18 +39,21 @@ jobs:
 
       - name: Siêu Tối Ưu RDP cho XEM VIDEO 120 FPS SIÊU MƯỢT + Music + Mạng YẾU + Eco Mode
         run: |
-          Write-Host "Áp dụng SIÊU TỐI ƯU VIDEO MAX 120 FPS - Siêu mượt không giật lag + Nhạc không rè + Eco Mode..."
-
+          # === VIDEO MAX 120 FPS ===
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fEnableVirtualizedGraphics" -Value 1 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "AVCHardwareEncodePreferred" -Value 1 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "AVC444ModePreferred" -Value 1 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "MinFrameRate" -Value 120 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "MaxCompression" -Value 0 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "fLowBandwidth" -Value 0 -Type DWord -Force
+          
+          # === Giảm lag animation ===
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fDisableWallpaper" -Value 1 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fDisableFullWindowDrag" -Value 1 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fDisableMenuAnims" -Value 1 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fDisableThemes" -Value 1 -Type DWord -Force
+          
+          # === Ưu tiên AUDIO ===
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile' -Name "SystemResponsiveness" -Value 0 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile' -Name "NetworkThrottlingIndex" -Value 0xffffffff -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "fDisableAudioCapture" -Value 0 -Type DWord -Force
@@ -59,31 +62,30 @@ jobs:
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Audio' -Name "Scheduling Category" -Value "High" -Type String -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Audio' -Name "Background Priority" -Value 1 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "MaxOutputBufferSize" -Value 16384 -Type DWord -Force
-
+          
+          # === ECO MODE ===
           powercfg /setactive a1841308-3541-4fab-bc81-f71556f20b4a
           powercfg /change monitor-timeout-ac 0
           powercfg /change standby-timeout-ac 0
           powercfg /change disk-timeout-ac 0
           powercfg /change hibernate-timeout-ac 0
 
-          Write-Host "Đã áp dụng SIÊU TỐI ƯU VIDEO MAX 120 FPS"
-
-      - name: Start RDP Tunnel (Singapore Optimized - Tự động tắt sau 24 tiếng)
+      - name: Start RDP Tunnel
         run: |
-          Write-Host "======================================================================"
-          Write-Host "         RDP XEM VIDEO MAX 120 FPS SIÊU MƯỢT - 24 TIẾNG"
-          Write-Host "======================================================================"
-          Write-Host "Username : DucthengTechDz"
-          Write-Host "Password : W1nd0ws-P4ssw0rd-2025!"
-          Write-Host "Region   : ${{ github.event.inputs.ngrok_region }}"
-          Write-Host "======================================================================"
-
           $ngrokProcess = Start-Process -FilePath ".\ngrok\ngrok.exe" `
-            -ArgumentList "tcp 3389 --region=${{ github.event.inputs.ngrok_region }} --log=stdout" `
+            -ArgumentList "tcp 3389 --region=${{ github.event.inputs.ngrok_region }}" `
             -NoNewWindow -PassThru
-
-          Write-Host "Ngrok RDP đã khởi động. Sẽ tự động tắt sau đúng 24 tiếng..."
+          
+          Start-Sleep -Seconds 5
+          
+          $response = Invoke-WebRequest -Uri "http://127.0.0.1:4040/api/tunnels" -UseBasicParsing
+          $json = $response.Content | ConvertFrom-Json
+          $tunnelUrl = $json.tunnels[0].public_url -replace 'tcp://', ''
+          
+          # === CHỈ IN 3 DÒNG QUAN TRỌNG ===
+          Write-Host "NGROK_URL=$tunnelUrl"
+          Write-Host "RDP_USER=DucthengTechDz"
+          Write-Host "RDP_PASS=W1nd0ws-P4ssw0rd-2025!"
+          
           Start-Sleep -Seconds 86400
-
           Stop-Process -Id $ngrokProcess.Id -Force -ErrorAction SilentlyContinue
-          Write-Host "ĐÃ HẾT 24 GIỜ - TỰ ĐỘNG TẮT RDP!"
