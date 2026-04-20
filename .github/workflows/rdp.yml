@@ -56,11 +56,18 @@ jobs:
           LƯU Ý: IP và Port đại ca xem trực tiếp trên Dashboard của Localtonet nhé!
           "@ | Out-File -FilePath rdp-info.txt -Encoding utf8
           
+          # Xử lý Git thông minh cho PowerShell
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add rdp-info.txt
-          git commit -m "Update RDP info (Localtonet)" || exit 0
-          git push
+          
+          $changes = git status --porcelain
+          if ($changes) {
+              git commit -m "Update RDP info (Localtonet)"
+              git push
+          } else {
+              Write-Host "File rdp-info.txt không có thay đổi mới, bỏ qua bước commit để tránh lỗi."
+          }
           
       - name: Start Localtonet Tunnel
         run: |
