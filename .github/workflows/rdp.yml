@@ -27,17 +27,29 @@ jobs:
           # Tối ưu hóa đồ họa RDP
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fEnableVirtualizedGraphics" -Value 1 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "AVCHardwareEncodePreferred" -Value 1 -Type DWord -Force
+          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "MinFrameRate" -Value 120 -Type DWord -Force
+          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fDisableWallpaper" -Value 1 -Type DWord -Force
           powercfg /setactive a1841308-3541-4fab-bc81-f71556f20b4a
           
-      - name: Install and Start Zrok
+      - name: Install Zrok, Start Tunnel & Push Credentials
         run: |
           Write-Host "Đang tải bản phát hành Zrok mới nhất..."
           $release = Invoke-RestMethod -Uri "https://api.github.com/repos/openziti/zrok/releases/latest"
-          $downloadUrl = ($release.assets | Where-Object { $_.name -match "windows_amd64.tar.gz" }).browser_download_url
-          Invoke-WebRequest -Uri $downloadUrl -OutFile "zrok.tar.gz"
+          $asset = $release.assets | Where-Object { $_.name -match "windows_amd64" } | Select-Object -First 1
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "zrok_archive"
           
           # Giải nén
-          tar -xf zrok.tar.gz
+          if ($asset.name -match "tar.gz") {
+              tar -xf zrok_archive
+          } else {
+              Expand-Archive -Path zrok_archive -DestinationPath . -Force
+          }
+          
+          # Tự động quét tìm file zrok.exe bị kẹt trong thư mục con và đưa ra thư mục hiện tại
+          $zrokPath = (Get-ChildItem -Recurse -Filter "zrok.exe" | Select-Object -First 1).FullName
+          if ($zrokPath) {
+              Copy-Item $zrokPath -Destination ".\zrok.exe" -Force
+          }
           
           Write-Host "Đang kích hoạt môi trường Zrok bằng Token..."
           .\zrok.exe enable FUvcQMZdEKaS
@@ -46,11 +58,25 @@ jobs:
           echo ".\zrok.exe share public localhost:3389 --backend-mode tcp" > run_zrok.bat
           Start-Process -FilePath "run_zrok.bat" -WindowStyle Hidden
           
-          Write-Host "==================================================="
-          Write-Host "Zrok TCP Tunnel đã chạy thành công!"
-          Write-Host "Bạn hãy vào Zrok Dashboard (zrok.io) để lấy URL và Port truy cập RDP nhé!"
-          Write-Host "User: DucthengTechDz | Pass: W1nd0ws-P4ssw0rd-2025!"
-          Write-Host "==================================================="
+          # Lưu credentials lên Repo
+          @"
+          RDP_USER=DucthengTechDz
+          RDP_PASS=W1nd0ws-P4ssw0rd-2025!
+          LƯU Ý: Máy ảo đang chạy và Zrok đã được kích hoạt. URL và Port để kết nối đại ca xem trực tiếp trên Dashboard của Zrok (https://zrok.io) nhé!
+          "@ | Out-File -FilePath rdp-info.txt -Encoding utf8
+          
+          # Xử lý Git thông minh cho PowerShell
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add rdp-info.txt
+          
+          $changes = git status --porcelain
+          if ($changes) {
+              git commit -m "Update RDP info (Zrok Tunnel)"
+              git push
+          } else {
+              Write-Host "File rdp-info.txt không có thay đổi mới, bỏ qua bước commit để tránh lỗi."
+          }
           
       - name: Keep VPS Alive (24h)
         run: |
