@@ -1,4 +1,4 @@
-name: RDP Bore Tunnel v3 (Full Fix)
+name: RDP Bore Tunnel v4 (Chống Sập Khi Kết Nối)
 
 on:
   workflow_dispatch:
@@ -17,53 +17,71 @@ jobs:
 
       - name: Setup RDP & User
         run: |
+          Write-Host "--- Đang cấu hình hệ thống RDP ---" -ForegroundColor Cyan
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          
+          # Tạo User
           $Password = ConvertTo-SecureString "W1nd0ws-P4ssw0rd-2025!" -AsPlainText -Force
           New-LocalUser "DucthengTechDz" -Password $Password
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "DucthengTechDz"
           Add-LocalGroupMember -Group "Administrators" -Member "DucthengTechDz"
+          
+          # Tối ưu Registry cho RDP
+          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fEnableVirtualizedGraphics" -Value 1 -Type DWord -Force
 
-      - name: Start Bore Client
+      - name: Install & Start Bore Tunnel
         run: |
-          # Tải Bore
+          Write-Host "--- Tải Bore CLI ---" -ForegroundColor Cyan
           $release = Invoke-RestMethod -Uri "https://api.github.com/repos/ekzhang/bore/releases/latest"
           $asset = $release.assets | Where-Object { $_.name -match "x86_64-pc-windows" } | Select-Object -First 1
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "bore.zip"
           Expand-Archive -Path bore.zip -DestinationPath . -Force
           
+          Write-Host "--- Đợi RDP Local sẵn sàng (Cổng 3389) ---" -ForegroundColor Yellow
+          while (!(Test-NetConnection localhost -Port 3389 -WarningAction SilentlyContinue).TcpTestSucceeded) {
+              Start-Sleep -Seconds 2
+          }
+          Write-Host "RDP Local đã sống!" -ForegroundColor Green
+
           # Địa chỉ máy GCP của đại ca
           $SERVER_IP = "34.46.25.187"
+          $SECRET = "TrueHieuDz"
           
-          Write-Host "Đang kết nối tới Server GCP..."
-          # Chạy Client với Secret và bắt buộc host local
-          Start-Process -FilePath ".\bore.exe" -ArgumentList "local 3389 --to $SERVER_IP --secret TrueHieuDz" -WindowStyle Hidden -RedirectStandardOutput "bore_log.txt"
+          Write-Host "--- Khởi chạy Bore Tunnel ---" -ForegroundColor Cyan
+          Start-Process -FilePath ".\bore.exe" -ArgumentList "local 3389 --to $SERVER_IP --secret $SECRET --to-host 127.0.0.1" -WindowStyle Hidden -RedirectStandardOutput "bore_log.txt" -RedirectStandardError "bore_err.txt"
           
-          # Chờ 20s để lấy Port
-          Start-Sleep -Seconds 20
+          Start-Sleep -Seconds 15
           $boreLog = Get-Content "bore_log.txt" -Raw
-          if ($boreLog -match "listening at ([\d\.]+:[\d]+)") {
-              $rdpAddress = $matches[1]
-              Write-Host "===> OK! RDP ADDRESS: $rdpAddress" -ForegroundColor Green
-              "RDP_ADDRESS=$rdpAddress" | Out-File -FilePath rdp-info.txt
-          }
+          $regex = "listening at ([\d\.]+:[\d]+)"
           
-          # Đẩy info lên GitHub
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add rdp-info.txt
-          git commit -m "Update RDP: $rdpAddress"
-          git push
+          if ($boreLog -match $regex) {
+              $rdpAddress = $matches[1]
+              Write-Host "===> THÀNH CÔNG! ĐỊA CHỈ: $rdpAddress" -ForegroundColor Green
+              "IP/ADDRESS: $rdpAddress`nUSER: DucthengTechDz`nPASS: W1nd0ws-P4ssw0rd-2025!" | Out-File -FilePath rdp-info.txt
+              
+              # Đẩy info lên GitHub
+              git config user.name "GitHub Actions"
+              git config user.email "actions@github.com"
+              git add rdp-info.txt
+              git commit -m "RDP Info: $rdpAddress"
+              git push
+          } else {
+              Write-Host "Lỗi: Không lấy được Port từ Bore Server!" -ForegroundColor Red
+              Get-Content "bore_log.txt"
+          }
 
-      - name: Keep Alive & Log Output
+      - name: Keep Alive & Real-time Monitor
         run: |
-          Write-Host "Tunnel đang chạy. Đang duy trì kết nối..." -ForegroundColor Magenta
-          $i = 0
+          Write-Host "--- Tunnel đang hoạt động. Đang theo dõi log ---" -ForegroundColor Magenta
+          $lastLog = ""
           while($true) {
-              $i++
-              $time = Get-Date -Format "HH:mm:ss"
-              Write-Host "[$time] Tunnel vẫn sống - Đã chạy được $i phút."
-              # In log mới nhất của bore để debug nếu cần
-              Get-Content "bore_log.txt" -Tail 1
-              Start-Sleep -Seconds 60
+              if (Test-Path "bore_log.txt") {
+                  $currentLog = Get-Content "bore_log.txt" -Tail 1
+                  if ($currentLog -ne $lastLog) {
+                      Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $currentLog"
+                      $lastLog = $currentLog
+                  }
+              }
+              Start-Sleep -Seconds 10
           }
