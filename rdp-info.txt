@@ -1,7 +1,7 @@
 ==============================================
 THÔNG TIN KẾT NỐI RDP (BORE TUNNEL)
 ==============================================
-IP/ADDRESS: 34.46.25.187:15217
+IP/ADDRESS: KHÔNG_LẤY_ĐƯỢC_IP (Kiểm tra Firewall GCP của đại ca nhé)
 USERNAME  : DucthengTechDz
 PASSWORD  : W1nd0ws-P4ssw0rd-2025!
 ==============================================
