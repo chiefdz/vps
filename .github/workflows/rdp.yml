@@ -1,4 +1,4 @@
-name: RDP Bore Tunnel (Self-Hosted Mì Ăn Liền)
+name: RDP Bore Tunnel v3 (Full Fix)
 
 on:
   workflow_dispatch:
@@ -9,83 +9,61 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 1440 # Chạy tối đa 24h
+    timeout-minutes: 1440
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup RDP & Create User
+      - name: Setup RDP & User
         run: |
-          # Bật Remote Desktop
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          
-          # Tạo User với quyền Admin
           $Password = ConvertTo-SecureString "W1nd0ws-P4ssw0rd-2025!" -AsPlainText -Force
-          New-LocalUser "DucthengTechDz" -Password $Password -Description "RDP User"
+          New-LocalUser "DucthengTechDz" -Password $Password
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "DucthengTechDz"
           Add-LocalGroupMember -Group "Administrators" -Member "DucthengTechDz"
-          
-          # Tối ưu hiệu năng đồ họa cho RDP mượt hơn
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fEnableVirtualizedGraphics" -Value 1 -Type DWord -Force
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "AVCHardwareEncodePreferred" -Value 1 -Type DWord -Force
-          powercfg /setactive a1841308-3541-4fab-bc81-f71556f20b4a
 
-      - name: Install & Start Bore Tunnel
+      - name: Start Bore Client
         run: |
-          Write-Host "1. Đang tải Bore CLI..." -ForegroundColor Green
+          # Tải Bore
           $release = Invoke-RestMethod -Uri "https://api.github.com/repos/ekzhang/bore/releases/latest"
           $asset = $release.assets | Where-Object { $_.name -match "x86_64-pc-windows" } | Select-Object -First 1
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "bore.zip"
           Expand-Archive -Path bore.zip -DestinationPath . -Force
           
-          Write-Host "2. Đang khởi chạy Bore Client kết nối tới Server GCP..." -ForegroundColor Green
-          # IP Server của đại ca ở GCP
+          # Địa chỉ máy GCP của đại ca
           $SERVER_IP = "34.46.25.187"
           
-          # Chạy ngầm Bore và ghi log
-          Start-Process -FilePath ".\bore.exe" -ArgumentList "local 3389 --to $SERVER_IP" -WindowStyle Hidden -RedirectStandardOutput "bore_log.txt" -RedirectStandardError "bore_err.txt"
+          Write-Host "Đang kết nối tới Server GCP..."
+          # Chạy Client với Secret và bắt buộc host local
+          Start-Process -FilePath ".\bore.exe" -ArgumentList "local 3389 --to $SERVER_IP --secret TrueHieuDz" -WindowStyle Hidden -RedirectStandardOutput "bore_log.txt"
           
-          Write-Host "3. Đang chờ 20s để lấy Public Port..." -ForegroundColor Cyan
+          # Chờ 20s để lấy Port
           Start-Sleep -Seconds 20
-          
-          # Đọc log và dùng Regex chuẩn để bóc tách địa chỉ kết nối
           $boreLog = Get-Content "bore_log.txt" -Raw
-          $regex = "listening at ([\d\.]+:[\d]+)"
-          $rdpAddress = "KHÔNG_LẤY_ĐƯỢC_IP (Kiểm tra Firewall GCP của đại ca nhé)"
-
-          if ($boreLog -match $regex) {
+          if ($boreLog -match "listening at ([\d\.]+:[\d]+)") {
               $rdpAddress = $matches[1]
-              Write-Host "===> THÀNH CÔNG! ĐỊA CHỈ RDP: $rdpAddress" -ForegroundColor Green
-          } else {
-              Write-Host "Log Bore hiện tại:" -ForegroundColor Yellow
-              Write-Host $boreLog
+              Write-Host "===> OK! RDP ADDRESS: $rdpAddress" -ForegroundColor Green
+              "RDP_ADDRESS=$rdpAddress" | Out-File -FilePath rdp-info.txt
           }
-
-          # Tạo file thông tin để đại ca xem trực tiếp trên Repo
-          @"
-          ==============================================
-          THÔNG TIN KẾT NỐI RDP (BORE TUNNEL)
-          ==============================================
-          IP/ADDRESS: $rdpAddress
-          USERNAME  : DucthengTechDz
-          PASSWORD  : W1nd0ws-P4ssw0rd-2025!
-          ==============================================
-          Lưu ý: Copy dòng IP/ADDRESS dán vào app Remote Desktop Connection.
-          Hàng Self-Hosted cực mượt!
-          "@ | Out-File -FilePath "rdp-info.txt" -Encoding utf8
-
-          # Lưu log để debug nếu lỗi
+          
+          # Đẩy info lên GitHub
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add rdp-info.txt
-          git commit -m "Cập nhật RDP Info: $rdpAddress"
+          git commit -m "Update RDP: $rdpAddress"
           git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Keep VPS Alive (24h)
+      - name: Keep Alive & Log Output
         run: |
-          Write-Host "VPS đang chạy. Đại ca có thể kết nối ngay bây giờ!" -ForegroundColor Magenta
-          Start-Sleep -Seconds 86400
+          Write-Host "Tunnel đang chạy. Đang duy trì kết nối..." -ForegroundColor Magenta
+          $i = 0
+          while($true) {
+              $i++
+              $time = Get-Date -Format "HH:mm:ss"
+              Write-Host "[$time] Tunnel vẫn sống - Đã chạy được $i phút."
+              # In log mới nhất của bore để debug nếu cần
+              Get-Content "bore_log.txt" -Tail 1
+              Start-Sleep -Seconds 60
+          }
