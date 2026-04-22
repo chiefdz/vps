@@ -1,4 +1,4 @@
-name: RDP Localtonet
+name: RDP Zrok.io Tunnel
 
 on:
   workflow_dispatch:
@@ -9,33 +9,15 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 1450 # Max limit 24h
+    timeout-minutes: 1450 # Cắm VPS tối đa 24h
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Setup RDP & Download Localtonet
+      - name: Setup RDP & Create User
         run: |
-          # Tự động thử các link tải Localtonet mới nhất để tránh lỗi 404
-          $urls = @(
-              "https://localtonet.com/download/localtonet-win-64.zip",
-              "https://localtonet.com/download/localtonet-windows-64.zip",
-              "https://localtonet.com/download/localtonet-windows.zip"
-          )
-          foreach ($url in $urls) {
-              try {
-                  Write-Host "Đang thử tải từ: $url"
-                  Invoke-WebRequest -Uri $url -OutFile localtonet.zip -UseBasicParsing
-                  if (Test-Path localtonet.zip) { break }
-              } catch {
-                  Write-Host "Link $url bị lỗi 404, thử link khác..."
-              }
-          }
-          
-          Expand-Archive localtonet.zip -DestinationPath .
-          
-          # Cấu hình RDP và tạo User
+          # Bật RDP và tạo User
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           New-LocalUser "DucthengTechDz" -Password (ConvertTo-SecureString "W1nd0ws-P4ssw0rd-2025!" -AsPlainText -Force)
@@ -45,37 +27,31 @@ jobs:
           # Tối ưu hóa đồ họa RDP
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fEnableVirtualizedGraphics" -Value 1 -Type DWord -Force
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "AVCHardwareEncodePreferred" -Value 1 -Type DWord -Force
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "MinFrameRate" -Value 120 -Type DWord -Force
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name "fDisableWallpaper" -Value 1 -Type DWord -Force
           powercfg /setactive a1841308-3541-4fab-bc81-f71556f20b4a
           
-          # Lưu credentials lên Repo
-          @"
-          RDP_USER=DucthengTechDz
-          RDP_PASS=W1nd0ws-P4ssw0rd-2025!
-          LƯU Ý: IP và Port đại ca xem trực tiếp trên Dashboard của Localtonet nhé!
-          "@ | Out-File -FilePath rdp-info.txt -Encoding utf8
-          
-          # Xử lý Git thông minh cho PowerShell
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add rdp-info.txt
-          
-          $changes = git status --porcelain
-          if ($changes) {
-              git commit -m "Update RDP info (Localtonet)"
-              git push
-          } else {
-              Write-Host "File rdp-info.txt không có thay đổi mới, bỏ qua bước commit để tránh lỗi."
-          }
-          
-      - name: Start Localtonet Tunnel
+      - name: Install and Start Zrok
         run: |
-          # Ghi lệnh ra file .bat để tránh lỗi PowerShell parse sai cờ -t
-          echo "localtonet.exe -t qGBTCY1z9LyhfAxgKvEXkVUsHFjSJiDRp" > run_tunnel.bat
+          Write-Host "Đang tải bản phát hành Zrok mới nhất..."
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/openziti/zrok/releases/latest"
+          $downloadUrl = ($release.assets | Where-Object { $_.name -match "windows_amd64.tar.gz" }).browser_download_url
+          Invoke-WebRequest -Uri $downloadUrl -OutFile "zrok.tar.gz"
           
-          # Chạy file .bat ngầm
-          Start-Process -FilePath "run_tunnel.bat" -WindowStyle Hidden
+          # Giải nén
+          tar -xf zrok.tar.gz
           
-          # Sleep để giữ VPS sống 24h
+          Write-Host "Đang kích hoạt môi trường Zrok bằng Token..."
+          .\zrok.exe enable FUvcQMZdEKaS
+          
+          Write-Host "Khởi chạy Zrok TCP Tunnel cho Port 3389..."
+          echo ".\zrok.exe share public localhost:3389 --backend-mode tcp" > run_zrok.bat
+          Start-Process -FilePath "run_zrok.bat" -WindowStyle Hidden
+          
+          Write-Host "==================================================="
+          Write-Host "Zrok TCP Tunnel đã chạy thành công!"
+          Write-Host "Bạn hãy vào Zrok Dashboard (zrok.io) để lấy URL và Port truy cập RDP nhé!"
+          Write-Host "User: DucthengTechDz | Pass: W1nd0ws-P4ssw0rd-2025!"
+          Write-Host "==================================================="
+          
+      - name: Keep VPS Alive (24h)
+        run: |
           Start-Sleep -Seconds 86400
