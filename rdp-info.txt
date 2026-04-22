@@ -1,9 +1,1 @@
-==============================================
-THÔNG TIN KẾT NỐI RDP (BORE TUNNEL)
-==============================================
-IP/ADDRESS: KHÔNG_LẤY_ĐƯỢC_IP (Kiểm tra Firewall GCP của đại ca nhé)
-USERNAME  : DucthengTechDz
-PASSWORD  : W1nd0ws-P4ssw0rd-2025!
-==============================================
-Lưu ý: Copy dòng IP/ADDRESS dán vào app Remote Desktop Connection.
-Hàng Self-Hosted cực mượt!
+RDP_ADDRESS=34.46.25.187:14308
