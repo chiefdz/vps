@@ -245,17 +245,18 @@ jobs:
               Write-Host "🌌 Remote VNC URL: $remoteLink"
 
               $createdAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-              $report = @"
-=======================================================
-noVNC INFO - DucThang x TrueHieu Edition
-=======================================================
-URL       : $remoteLink
-Password  : hieudz
-Host      : bore-tunnel.trycloudflare
-Protocol  : noVNC over Cloudflared
-Created   : $createdAt
-=======================================================
-"@
+              $reportLines = @(
+                '=======================================================',
+                'noVNC INFO - DucThang x TrueHieu Edition',
+                '=======================================================',
+                "URL       : $remoteLink",
+                'Password  : hieudz',
+                'Host      : trycloudflare',
+                'Protocol  : noVNC over Cloudflared',
+                "Created   : $createdAt",
+                '======================================================='
+              )
+              $report = ($reportLines -join "`r`n")
               [System.IO.File]::WriteAllText("$(Get-Location)\remote-link.txt", $report)
 
               try {
