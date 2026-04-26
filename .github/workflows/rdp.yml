@@ -274,7 +274,7 @@ jobs:
           }
           
           Write-Host "🚀 VPS Session Started - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-          Write-Host "🌌 Access noVNC via remote-link.txt URL (Password: hieudz)"
+          Write-Host "🌌 Access noVNC via remote-link.txt URL (Password: TrueHieuDepZai)"
           
           mkdir -Force ".backup"
           
