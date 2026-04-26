@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: "0 */5 * * *"
 
+concurrency:
+  group: vps-novnc-runner
+  cancel-in-progress: true
+
 env:
   VPS_NAME: vps-project-1777211676958
 
