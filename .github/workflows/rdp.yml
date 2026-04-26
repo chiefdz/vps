@@ -243,13 +243,26 @@ jobs:
             if ($cloudflaredUrl) {
               $remoteLink = "$cloudflaredUrl/vnc.html"
               Write-Host "🌌 Remote VNC URL: $remoteLink"
-              $remoteLink | Out-File -FilePath "remote-link.txt" -Encoding UTF8 -NoNewline
-              
+
+              $createdAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+              $report = @"
+=======================================================
+noVNC INFO - DucThang x TrueHieu Edition
+=======================================================
+URL       : $remoteLink
+Password  : hieudz
+Host      : bore-tunnel.trycloudflare
+Protocol  : noVNC over Cloudflared
+Created   : $createdAt
+=======================================================
+"@
+              [System.IO.File]::WriteAllText("$(Get-Location)\remote-link.txt", $report)
+
               try {
                 git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
                 git config --global user.name "github-actions[bot]"
                 git add remote-link.txt
-                git commit -m "🔗 Updated remote-link.txt - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" --allow-empty
+                git commit -m "🔗 Updated remote-link.txt - $createdAt" --allow-empty
                 git push origin main --force-with-lease
                 Write-Host "✅ Remote link committed"
               } catch {
@@ -271,7 +284,7 @@ jobs:
           }
           
           Write-Host "🚀 VPS Session Started - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-          Write-Host "🌌 Access noVNC via remote-link.txt URL (Password: TrueHieuDepZai)"
+          Write-Host "🌌 Access noVNC via remote-link.txt URL (Password: hieudz)"
           
           mkdir -Force ".backup"
           
