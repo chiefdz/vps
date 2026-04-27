@@ -1,9 +1,9 @@
 =======================================================
 noVNC INFO - DucThang x TrueHieu Edition
 =======================================================
-URL       : https://mate-ceremony-reasons-spotlight.trycloudflare.com/vnc.html
+URL       : https://drugs-scene-nato-soon.trycloudflare.com/vnc.html
 Password  : hieudz
 Host      : trycloudflare
 Protocol  : noVNC over Cloudflared
-Created   : 2026-04-27 02:45:21
+Created   : 2026-04-27 07:36:55
 =======================================================
